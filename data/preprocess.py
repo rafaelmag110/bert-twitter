@@ -10,7 +10,7 @@ FLAGS = flags.FLAGS
 
 flags.DEFINE_enum('mode', None,
                     ['check', 'remove_id_col', 'reformat', 'clean', 
-                    'sentence_segmentation'],
+                    'extract_text','sentence_segmentation'],
                     'Define the mode that the program will run.')
 flags.DEFINE_boolean('all_files', False,
                     'Execute program for all files or single file.')
@@ -18,6 +18,9 @@ flags.DEFINE_string('input_file', None,
                     'Defines the input file.')
 flags.DEFINE_string('output_file', None,
                     'Defines the output file.')
+flags.DEFINE_integer('text_col', 0,
+                  'Defines in which column the record holds the tweet text. (0-indexed)'
+                  'The default is set to 0.')
 
 def remove_tweetId_column(input_file, output_file, sep=','):
   '''
@@ -112,7 +115,7 @@ def sentence_reformating(input_file, output_file, sep=','):
         count+=1
   logging.info("{}: Read {} lines, wrote {} lines".format(input_file, count, wrote_ln))
 
-def text_cleaner(input_file, output_file, sep=','):
+def text_cleaner(input_file, output_file, sep=',', text_col=0):
   '''
   '''
   def _clean_text(text):
@@ -136,14 +139,44 @@ def text_cleaner(input_file, output_file, sep=','):
     with open(input_file, 'r') as file_input:
       for line in file_input:
         count += 1
-        sentence_build=[]
+        sentence_builder=[]
         tokens = re.split(sep, line)
 
-        if len(tokens) == 2:
-          sentence_build.append(tokens[0])
-          sentence_build.append(_clean_text(tokens[1]).strip(' '))
-          file_output.write(sep.join(sentence_build))
+        sentence_builder += tokens[:text_col]
+
+        try:
+
+          sentence_builder.append(_clean_text(tokens[text_col]).strip(' '))
+
+        except IndexError:
+          print("Nothing in column {}. Please check index.".format(text_col))
+          break
+
+        sentence_builder += tokens[text_col+1:]
+
+        file_output.write(sep.join(sentence_builder))
+        wrote_ln += 1
+  
+  logging.info("{}: Read {} lines, wrote {} lines".format(input_file, count, wrote_ln))
+
+def text_extracter(input_file, output_file, sep=',', text_col=0):
+  '''
+  '''
+  count=0
+  wrote_ln=0
+  with open(output_file, 'a') as file_output:
+    with open(input_file, 'r') as file_input:
+      for line in file_input:
+        count += 1
+        tokens = re.split(sep, line)
+
+        try:
+          file_output.write(tokens[text_col].strip(' '))
           wrote_ln += 1
+        except IndexError:
+          print("Nothing in column {}. Please check index.".format(text_col))
+          break
+
   
   logging.info("{}: Read {} lines, wrote {} lines".format(input_file, count, wrote_ln))
 
@@ -216,12 +249,17 @@ def main(_):
   elif FLAGS.mode == 'clean':
     #clean the text 
     _remove_output_file(FLAGS.output_file)
-    [text_cleaner(file, FLAGS.output_file, sep=sep_by_filetype_dict[file[-4:]]) for file in file_list]
+    [text_cleaner(file, FLAGS.output_file, sep=sep_by_filetype_dict[file[-4:]], text_col=FLAGS.text_col) for file in file_list]
   elif FLAGS.mode == 'sentence_segmentation':
     #clean the text 
     _remove_output_file(FLAGS.output_file)
     [sentence_segmentation(file, FLAGS.output_file, sep=sep_by_filetype_dict[file[-4:]]) for file in file_list]
+  elif FLAGS.mode == 'extract_text':
+    #extract text
+    _remove_output_file(FLAGS.output_file)
+    [text_extracter(file, FLAGS.output_file, sep=sep_by_filetype_dict[file[-4:]], text_col=FLAGS.text_col) for file in file_list]
 
 if __name__ == "__main__":
   flags.mark_flag_as_required('mode')
+  flags.mark_flag_as_required('input_file')
   app.run(main)
