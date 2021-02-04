@@ -18,6 +18,6 @@ I plan to implement this code according to such, in the near future.
 (Under Development)
 
 ## Roadmap
-- Refactor code according to lattest tensorflow BERT guide
+- Refactor code according to latest tensorflow BERT guide
 - Create a TFX pipeline for improved research to production development;
 - Research additional tweet preprocessing techniques;
