@@ -8,9 +8,7 @@ from absl import logging
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_enum('mode', None,
-                    ['check', 'remove_id_col', 'reformat', 'clean', 
-                    'extract_text','sentence_segmentation'],
+flags.DEFINE_string('mode', None,
                     'Define the mode that the program will run.')
 flags.DEFINE_boolean('all_files', False,
                     'Execute program for all files or single file.')
@@ -18,9 +16,9 @@ flags.DEFINE_string('input_file', None,
                     'Defines the input file.')
 flags.DEFINE_string('output_file', None,
                     'Defines the output file.')
-flags.DEFINE_integer('text_col', 0,
+flags.DEFINE_integer('text_col', 1,
                   'Defines in which column the record holds the tweet text. (0-indexed)'
-                  'The default is set to 0.')
+                  'The default is set to 1 due to SemEval file format')
 
 def remove_tweetId_column(input_file, output_file, sep=','):
   '''
@@ -115,7 +113,7 @@ def sentence_reformating(input_file, output_file, sep=','):
         count+=1
   logging.info("{}: Read {} lines, wrote {} lines".format(input_file, count, wrote_ln))
 
-def text_cleaner(input_file, output_file, sep=',', text_col=0):
+def text_cleaner(input_file, output_file, sep=',', text_col=1):
   '''
   '''
   def _clean_text(text):
@@ -216,11 +214,27 @@ def sentence_segmentation(input_file, output_file, sep=','):
 
  
 def main(_):
+  '''
+    Aux information:
+    -Input file content is not stored in memory
+    -Every action dumps text to a file (except the "check" command)
+    -Temporary file placeholders are used to store state inbetween commands.
+    -Output file is alternated every action
+    -Content should be moved to desired FLAGS.output_file in last command
+  '''
+
   file_list=[]
+
+  # tokenize commands from mode flag.
+  cmd_list = re.split(r',', FLAGS.mode)
+
+  logging.info('Steps to do:')
+  [logging.info('-> '+cmd) for cmd in cmd_list]
 
   sep_by_filetype_dict = {
     '.csv' : ',',
-    '.tsv' : '\t'
+    '.tsv' : '\t',
+    '.txt' : '\t' #semeval files come in .txt format but are tab separated
   }
 
   def _remove_output_file(output_file):
@@ -228,38 +242,75 @@ def main(_):
         os.remove(output_file)
 
   if FLAGS.all_files:
-    with os.scandir(".") as entries:
-        for entry in entries:
-            if entry.is_file() and entry.name.endswith('.txt'):
-                file_list.append(entry.name)
+      with os.scandir(".") as entries:
+          for entry in entries:
+              if entry.is_file() and entry.name.endswith('.txt'):
+                  file_list.append(entry.name)
   else:
     file_list.append(FLAGS.input_file)
 
-  if FLAGS.mode == 'check':
-    #check files for correct format
-    [check_entry_format(file, sep=sep_by_filetype_dict[file[-4:]]) for file in file_list]
-  elif FLAGS.mode == "remove_id_col":
-    #remove the tweet id column at the start of the file.
-    _remove_output_file(FLAGS.output_file)
-    [remove_tweetId_column(file, FLAGS.output_file, sep=sep_by_filetype_dict[file[-4:]]) for file in file_list]
-  elif FLAGS.mode == 'reformat':
-    #reformat the input files to correct format
-    _remove_output_file(FLAGS.output_file)
-    [sentence_reformating(file, FLAGS.output_file, sep=sep_by_filetype_dict[file[-4:]]) for file in file_list]
-  elif FLAGS.mode == 'clean':
-    #clean the text 
-    _remove_output_file(FLAGS.output_file)
-    [text_cleaner(file, FLAGS.output_file, sep=sep_by_filetype_dict[file[-4:]], text_col=FLAGS.text_col) for file in file_list]
-  elif FLAGS.mode == 'sentence_segmentation':
-    #clean the text 
-    _remove_output_file(FLAGS.output_file)
-    [sentence_segmentation(file, FLAGS.output_file, sep=sep_by_filetype_dict[file[-4:]]) for file in file_list]
-  elif FLAGS.mode == 'extract_text':
-    #extract text
-    _remove_output_file(FLAGS.output_file)
-    [text_extracter(file, FLAGS.output_file, sep=sep_by_filetype_dict[file[-4:]], text_col=FLAGS.text_col) for file in file_list]
+  file_extension = file_list[0][-4:]
+  tmp_file_1 = '/tmp/file_1' + file_extension
+  tmp_file_2 = '/tmp/file_2' + file_extension
+
+  output_file = tmp_file_1
+  
+  # iterate over all commands and execute actions
+  for command in cmd_list:
+
+    # if executing last command, output to desired output file
+    if command == cmd_list[-1] and command.strip() != "check":
+      output_file = FLAGS.output_file
+      
+    _remove_output_file(output_file) # remove existing tmp file to prevent erroneous appending
+
+    command = command.strip()
+
+    if command == 'check': #check files for correct format
+      [check_entry_format(file, sep=sep_by_filetype_dict[file[-4:]]) for file in file_list]
+
+    elif command == "remove_id_col": #remove the tweet id column at the start of the file.
+      [remove_tweetId_column(file, output_file, sep=sep_by_filetype_dict[file[-4:]]) for file in file_list]
+
+    elif command == 'reformat':  #reformat the input files to correct format
+      [sentence_reformating(file, output_file, sep=sep_by_filetype_dict[file[-4:]]) for file in file_list]
+
+    elif command == 'clean': #clean the text
+      [text_cleaner(file, output_file, sep=sep_by_filetype_dict[file[-4:]], text_col=FLAGS.text_col) for file in file_list]
+
+    elif command == 'sentence_segmentation': #Segment text into sentences for pre-training
+      [sentence_segmentation(file, output_file, sep=sep_by_filetype_dict[file[-4:]]) for file in file_list]
+
+    elif command == 'extract_text': #extract text
+      [text_extracter(file, output_file, sep=sep_by_filetype_dict[file[-4:]], text_col=FLAGS.text_col) for file in file_list]
+
+    # logic for file switching
+    # file_list is used to handle the multiple file input flag
+    # The first command is the one who should use the multiple files and merge into one temp file
+    # After that, only one input file is used.
+    # file_list is used to maintain logic
+
+    if file_list[0] == tmp_file_1: # if input has been tmp 1, new input is tmp 2
+      del file_list
+      file_list = [tmp_file_2]
+      output_file = tmp_file_1
+    
+    elif file_list[0] == tmp_file_2: # if input has been tmp 1, new input is tmp 2
+      del file_list
+      file_list = [tmp_file_1]
+      output_file = tmp_file_2
+
+    else:
+      del file_list
+      file_list = [tmp_file_1]
+      output_file = tmp_file_2
+    
+    # loop end
+
+  # remove tmp files after execution
+  _remove_output_file(tmp_file_1)
+  _remove_output_file(tmp_file_2) 
 
 if __name__ == "__main__":
   flags.mark_flag_as_required('mode')
-  flags.mark_flag_as_required('input_file')
   app.run(main)
