@@ -9,9 +9,11 @@ from absl import logging
 FLAGS = flags.FLAGS
 
 flags.DEFINE_string('mode', None,
+                    ['check', 'remove_id_col', 'reformat', 'clean', 
+                    'extract_text','sentence_segmentation',
+                    'remove_id_col,reformat,clean',
+                    'remove_id_col,reformat'],
                     'Define the mode that the program will run.')
-flags.DEFINE_boolean('all_files', False,
-                    'Execute program for all files or single file.')
 flags.DEFINE_string('input_file', None, 
                     'Defines the input file.')
 flags.DEFINE_string('output_file', None,
@@ -74,7 +76,7 @@ def check_entry_format(input_file, sep=','):
 def sentence_reformating(input_file, output_file, sep=','):
   '''
   '''
-  logging.info("Reformating the sentence.")
+  logging.info("{}: Reformating the sentences.".format(input_file))
 
   count=0
   wrote_ln=0
@@ -109,7 +111,7 @@ def sentence_reformating(input_file, output_file, sep=','):
           output_f.write(sep.join(sentence_build))
           wrote_ln+=1
         else:
-          logging.info("Not know format in line {} with tokens {}".format(index, tokens))
+          logging.info("{}: Not know format in line {} with tokens {}".format(input_file, index, tokens))
         count+=1
   logging.info("{}: Read {} lines, wrote {} lines".format(input_file, count, wrote_ln))
 
@@ -241,7 +243,7 @@ def main(_):
     if os.path.exists(output_file):
         os.remove(output_file)
 
-  if FLAGS.all_files:
+  if FLAGS.input_file == '__all_files__':
       with os.scandir(".") as entries:
           for entry in entries:
               if entry.is_file() and entry.name.endswith('.txt'):
@@ -313,4 +315,5 @@ def main(_):
 
 if __name__ == "__main__":
   flags.mark_flag_as_required('mode')
+  flags.mark_flag_as_required('input_file')
   app.run(main)
