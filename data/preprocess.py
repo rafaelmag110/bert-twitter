@@ -8,7 +8,7 @@ from absl import logging
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string('mode', None,
+flags.DEFINE_enum('mode', None,
                     ['check', 'remove_id_col', 'reformat', 'clean', 
                     'extract_text','sentence_segmentation',
                     'remove_id_col,reformat,clean',
