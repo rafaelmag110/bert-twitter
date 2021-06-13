@@ -2,6 +2,8 @@ import os
 import sys
 import re
 
+import csv
+
 from absl import app
 from absl import flags
 from absl import logging
@@ -120,42 +122,77 @@ def text_cleaner(input_file, output_file, sep=',', text_col=1):
   '''
   def _clean_text(text):
     #Regex to match
-    url_regex = r'https?://[^\s]+'
+    url_regex = r'https?://[^\s\"\']+'
     amp_regex = r'&amp;'
     username_regex = r'@[A-Za-z0-9._-]+'
+    escaped_escapes = r'\\\\'
     # hashtag_regex = r'#[A-Za-z0-9]+'
     hashtag_regex = r'#'
 
     no_url = re.sub(url_regex, '', text)
     no_url_usr = re.sub(username_regex, 'mention', no_url)
-    no_url_usr_ht = re.sub(hashtag_regex, '', no_url_usr)
+    # no_url_usr_ht = re.sub(hashtag_regex, '', no_url_usr)
     # no_url_usr_ht = re.sub(r'#', '', no_url_usr)
-    no_url_usr_ht_amp = re.sub(amp_regex, 'and', no_url_usr)
-    return no_url_usr_ht_amp
+    no_url_usr_amp = re.sub(amp_regex, 'and', no_url_usr)
+    final_text = re.sub(escaped_escapes, r'\\', no_url_usr_amp)
+    return final_text
+  
   
   count=0
   wrote_ln=0
   with open(output_file, 'a') as file_output:
-    with open(input_file, 'r') as file_input:
-      for line in file_input:
-        count += 1
-        sentence_builder=[]
-        tokens = re.split(sep, line)
 
-        sentence_builder += tokens[:text_col]
+    if sep == ',':
+      with open(input_file, newline='') as csvfile:
+        reader = csv.reader(csvfile, delimiter=',')
+        for row in reader:
+          count += 1
+          sentence_builder=[]
+          tokens = row
 
-        try:
+          sentence_builder += tokens[:text_col]
 
-          sentence_builder.append(_clean_text(tokens[text_col]).strip(' '))
+          try:
 
-        except IndexError:
-          print("Nothing in column {}. Please check index.".format(text_col))
-          break
+            sentence_builder.append(_clean_text(tokens[text_col]).strip(' '))
 
-        sentence_builder += tokens[text_col+1:]
+          except IndexError:
+            print("Nothing in column {}. Please check index.".format(text_col))
+            break
 
-        file_output.write(sep.join(sentence_builder))
-        wrote_ln += 1
+          sentence_builder += tokens[text_col+1:]
+          
+
+          file_output.write(sep.join(sentence_builder))
+          file_output.write("\n")
+          wrote_ln += 1
+
+    else:
+      with open(input_file, 'r') as file_input:
+
+        if sep == ',':
+          reader = csv.reader(file_input)
+
+        for line in file_input:
+          count += 1
+          sentence_builder=[]
+          tokens = re.split(sep, line)
+          print(tokens)
+
+          sentence_builder += tokens[:text_col]
+
+          try:
+
+            sentence_builder.append(_clean_text(tokens[text_col]).strip(' '))
+
+          except IndexError:
+            print("Nothing in column {}. Please check index.".format(text_col))
+            break
+
+          sentence_builder += tokens[text_col+1:]
+
+          file_output.write(sep.join(sentence_builder))
+          wrote_ln += 1
   
   logging.info("{}: Read {} lines, wrote {} lines".format(input_file, count, wrote_ln))
 
