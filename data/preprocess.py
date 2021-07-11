@@ -1,6 +1,7 @@
 import os
 import sys
 import re
+import ast
 
 import csv
 
@@ -125,17 +126,30 @@ def text_cleaner(input_file, output_file, sep=',', text_col=1):
     url_regex = r'https?://[^\s\"\']+'
     amp_regex = r'&amp;'
     username_regex = r'@[A-Za-z0-9._-]+'
-    escaped_escapes = r'\\\\'
     # hashtag_regex = r'#[A-Za-z0-9]+'
     hashtag_regex = r'#'
+    quote_unicode = r'\\xe2\\x80\\x99'
+    double_quote = r'\"'
 
-    no_url = re.sub(url_regex, '', text)
-    no_url_usr = re.sub(username_regex, 'mention', no_url)
-    # no_url_usr_ht = re.sub(hashtag_regex, '', no_url_usr)
-    # no_url_usr_ht = re.sub(r'#', '', no_url_usr)
-    no_url_usr_amp = re.sub(amp_regex, 'and', no_url_usr)
-    final_text = re.sub(escaped_escapes, r'\\', no_url_usr_amp)
+    final_text = re.sub(url_regex, '', text) # remove url
+    final_text = re.sub(username_regex, 'mention', final_text) # replace user mentions
+    # final_text = re.sub(hashtag_regex, '', final_text) # remove hashtags completly
+    # final_text = re.sub(r'#', '', final_text) # remove hashtag char
+    final_text = re.sub(amp_regex, 'and', final_text) # remove amp
+    final_text = re.sub(quote_unicode, "'", final_text) #replace quote unicode for quote mark
+    final_text = re.sub(double_quote, "'", final_text) #replace double quote by quote
+
     return final_text
+
+  def _parse_bytes(field):
+    """ Convert string represented in Python byte-string literal b'' syntax into
+        a decoded character string - otherwise return it unchanged.
+    """
+    result = field
+    try:
+        result = ast.literal_eval(field)
+    finally:
+        return result.decode() if isinstance(result, bytes) else field
   
   
   count=0
@@ -144,17 +158,23 @@ def text_cleaner(input_file, output_file, sep=',', text_col=1):
 
     if sep == ',':
       with open(input_file, newline='') as csvfile:
-        reader = csv.reader(csvfile, delimiter=',')
+        reader = csv.reader(csvfile, delimiter=',', quotechar='"')
         for row in reader:
           count += 1
           sentence_builder=[]
           tokens = row
 
-          sentence_builder += tokens[:text_col]
+          for token in tokens[:text_col]:
+            if ',' in token:
+              sentence_builder.append('"'+token+'"')
+            else:
+              sentence_builder.append(token)
+          
 
           try:
-
-            sentence_builder.append(_clean_text(tokens[text_col]).strip(' '))
+            
+            clean_text = '"' + _clean_text(_parse_bytes(tokens[text_col])).strip('" ') + '"'
+            sentence_builder.append(clean_text)
 
           except IndexError:
             print("Nothing in column {}. Please check index.".format(text_col))
@@ -170,14 +190,10 @@ def text_cleaner(input_file, output_file, sep=',', text_col=1):
     else:
       with open(input_file, 'r') as file_input:
 
-        if sep == ',':
-          reader = csv.reader(file_input)
-
         for line in file_input:
           count += 1
           sentence_builder=[]
           tokens = re.split(sep, line)
-          print(tokens)
 
           sentence_builder += tokens[:text_col]
 
