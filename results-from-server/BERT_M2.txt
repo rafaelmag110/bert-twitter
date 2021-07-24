@@ -1,0 +1,21 @@
+Tensorflow version: 2.3.1
+Checkpoint file %s found and restoring from checkpoint /bert_env/output_dir/ckpt-4716
+***** Predict results *****
+Loaded 12284 test values.
+Loaded 12284 predictions.
+The labels match.
+*******CONFUSION MATRIX*******
+               pred:negative  pred:neutral  pred:positive
+gold:negative           2979           870            123
+gold:neutral            1271          3898            768
+gold:positive             63           621           1691
+*******EVALUATION METRICS********
+Average recall:  0.7061868508225254
+F1_pn =  0.7006992300349085
+Accuracy:  0.6974926733962878
+
+uncased
+IPTP 0
+FiT 50333
+Maxseq 128
+eval batch 32
