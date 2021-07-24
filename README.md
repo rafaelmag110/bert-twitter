@@ -6,18 +6,9 @@ If you'd like a simpler method for training the BERT model for TSA, I'd recommen
 I plan to implement this code according to such, in the near future.
 
 ## BERT vs other approaches
-(Under Development)
-
-## Usage
-(Under Development)
-
-### Further pre-training
-(Under Development)
-
-### Fine tuning
-(Under Development)
-
-## Roadmap
-- Refactor code according to latest tensorflow BERT guide
-- Create a TFX pipeline for improved research to production development;
-- Research additional tweet preprocessing techniques;
+Model       | Avg Recall  |  *F1* | Accuracy
+ :---       |     :---:   | :---: |  :---:
+BB_twtr     |    0.681    | 0.685 |  0.658
+DataStories |    0.681    | 0.677 |  0.651
+VADER       |    0.524    | 0.567 |  0.530
+BERT_M4     |    0.711    | 0.703 |  0.697
